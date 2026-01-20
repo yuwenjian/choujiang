@@ -12,6 +12,7 @@ const COLORS = [
 export default function LotteryWheel({ prizes, isSpinning, onSpinEnd }) {
   const canvasRef = useRef(null)
   const containerRef = useRef(null)
+  const rotationRef = useRef(0) // 用于追踪当前实际旋转角度
   const [rotation, setRotation] = useState(0)
   const [canvasSize, setCanvasSize] = useState(400)
 
@@ -114,6 +115,11 @@ export default function LotteryWheel({ prizes, isSpinning, onSpinEnd }) {
 
   }, [prizes, canvasSize])
 
+  // 同步 rotationRef
+  useEffect(() => {
+    rotationRef.current = rotation
+  }, [rotation])
+
   // 处理旋转动画
   useEffect(() => {
     if (!isSpinning) return
@@ -122,12 +128,22 @@ export default function LotteryWheel({ prizes, isSpinning, onSpinEnd }) {
     const selectedIndex = Math.floor(Math.random() * prizes.length)
     const anglePerPrize = 360 / prizes.length
     
-    // 计算目标角度（让指针指向选中的奖项）
-    const targetAngle = selectedIndex * anglePerPrize + anglePerPrize / 2
+    // 计算目标位置：使指针指向选中扇形的中心
+    // 指针在顶部（12点钟方向），扇形从顶部开始顺时针绘制
+    // 第 n 个扇形的中心角度 = (n + 0.5) * anglePerPrize
+    // 要让这个中心旋转到顶部，需要旋转 360 - (n + 0.5) * anglePerPrize 度
+    const targetPosition = 360 - (selectedIndex + 0.5) * anglePerPrize
     
-    // 转5-8圈 + 目标角度
+    // 获取当前旋转位置（归一化到 0-360）
+    const currentPosition = ((rotationRef.current % 360) + 360) % 360
+    
+    // 计算从当前位置到目标位置需要旋转的角度
+    let delta = targetPosition - currentPosition
+    if (delta <= 0) delta += 360 // 确保正向旋转
+    
+    // 转5-8圈 + 到达目标位置
     const spins = 5 + Math.random() * 3
-    const totalRotation = spins * 360 + (360 - targetAngle)
+    const totalRotation = Math.floor(spins) * 360 + delta
     
     setRotation(prev => prev + totalRotation)
 
