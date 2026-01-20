@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import LotteryWheel from './components/LotteryWheel'
 import ResultModal from './components/ResultModal'
 import Background from './components/Background'
+import { useSound } from './hooks/useSound'
 import confetti from 'canvas-confetti'
 
 // 奖项配置
@@ -29,6 +30,27 @@ function App() {
   const [isSpinning, setIsSpinning] = useState(false)
   const [result, setResult] = useState(null)
   const [showModal, setShowModal] = useState(false)
+  const [soundEnabled, setSoundEnabled] = useState(true)
+  
+  // 音效
+  const { 
+    initAudio, 
+    playClick, 
+    playWin, 
+    playLose, 
+    startSpinSound, 
+    stopSpinSound 
+  } = useSound()
+
+  // 初始化音频（页面加载后）
+  useEffect(() => {
+    const handleFirstInteraction = () => {
+      initAudio()
+      document.removeEventListener('click', handleFirstInteraction)
+    }
+    document.addEventListener('click', handleFirstInteraction)
+    return () => document.removeEventListener('click', handleFirstInteraction)
+  }, [initAudio])
 
   // 触发彩带效果
   const triggerConfetti = useCallback(() => {
@@ -62,23 +84,35 @@ function App() {
   const handleSpinEnd = useCallback((prizeIndex) => {
     setResult(prizes[prizeIndex])
     setIsSpinning(false)
+    stopSpinSound()
     
     // 延迟显示弹窗
     setTimeout(() => {
       setShowModal(true)
-      // 如果不是"啥也没"，触发彩带
+      // 如果不是"啥也没"，触发彩带和中奖音效
       if (prizeIndex !== prizes.length - 1) {
         triggerConfetti()
+        if (soundEnabled) playWin()
+      } else {
+        // 未中奖音效
+        if (soundEnabled) playLose()
       }
     }, 500)
-  }, [triggerConfetti])
+  }, [triggerConfetti, stopSpinSound, playWin, playLose, soundEnabled])
 
   // 开始抽奖
   const handleSpin = useCallback(() => {
     if (isSpinning) return
+    
+    // 播放点击音效和转盘旋转音效
+    if (soundEnabled) {
+      playClick()
+      startSpinSound()
+    }
+    
     setIsSpinning(true)
     setShowModal(false)
-  }, [isSpinning])
+  }, [isSpinning, soundEnabled, playClick, startSpinSound])
 
   // 关闭弹窗
   const handleCloseModal = useCallback(() => {
@@ -90,6 +124,17 @@ function App() {
       {/* 背景 */}
       <Background />
       
+      {/* 音效开关 */}
+      <motion.button
+        className="fixed top-4 right-4 z-50 w-12 h-12 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-2xl hover:bg-white/20 transition-colors"
+        onClick={() => setSoundEnabled(!soundEnabled)}
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        title={soundEnabled ? '关闭音效' : '开启音效'}
+      >
+        {soundEnabled ? '🔊' : '🔇'}
+      </motion.button>
+
       {/* 主内容 */}
       <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 py-6 md:py-8 lg:py-10">
         {/* 标题区域 */}
