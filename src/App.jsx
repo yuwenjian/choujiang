@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import LotteryWheel from './components/LotteryWheel'
 import ResultModal from './components/ResultModal'
@@ -28,6 +28,7 @@ const prizes = [
 
 function App() {
   const [isSpinning, setIsSpinning] = useState(false)
+  const [shouldStop, setShouldStop] = useState(false)
   const [result, setResult] = useState(null)
   const [showModal, setShowModal] = useState(false)
   const [soundEnabled, setSoundEnabled] = useState(true)
@@ -54,23 +55,33 @@ function App() {
 
   // 触发彩带效果
   const triggerConfetti = useCallback(() => {
-    const duration = 3000
+    const duration = 4000
     const end = Date.now() + duration
+
+    // 大型彩带爆发
+    const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#FF8C00', '#9B59B6', '#E74C3C', '#3498DB']
+    
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 },
+      colors: colors,
+    })
 
     const frame = () => {
       confetti({
-        particleCount: 3,
+        particleCount: 4,
         angle: 60,
-        spread: 55,
-        origin: { x: 0, y: 0.8 },
-        colors: ['#D4AF37', '#FFD700', '#FFA500', '#FF6B6B', '#4ECDC4']
+        spread: 60,
+        origin: { x: 0, y: 0.7 },
+        colors: colors,
       })
       confetti({
-        particleCount: 3,
+        particleCount: 4,
         angle: 120,
-        spread: 55,
-        origin: { x: 1, y: 0.8 },
-        colors: ['#D4AF37', '#FFD700', '#FFA500', '#FF6B6B', '#4ECDC4']
+        spread: 60,
+        origin: { x: 1, y: 0.7 },
+        colors: colors,
       })
 
       if (Date.now() < end) {
@@ -84,6 +95,7 @@ function App() {
   const handleSpinEnd = useCallback((prizeIndex) => {
     setResult(prizes[prizeIndex])
     setIsSpinning(false)
+    setShouldStop(false)
     stopSpinSound()
     
     // 延迟显示弹窗
@@ -97,7 +109,7 @@ function App() {
         // 未中奖音效
         if (soundEnabled) playLose()
       }
-    }, 500)
+    }, 300)
   }, [triggerConfetti, stopSpinSound, playWin, playLose, soundEnabled])
 
   // 开始抽奖
@@ -111,8 +123,16 @@ function App() {
     }
     
     setIsSpinning(true)
+    setShouldStop(false)
     setShowModal(false)
   }, [isSpinning, soundEnabled, playClick, startSpinSound])
+
+  // 立即停止
+  const handleStop = useCallback(() => {
+    if (!isSpinning) return
+    if (soundEnabled) playClick()
+    setShouldStop(true)
+  }, [isSpinning, soundEnabled, playClick])
 
   // 关闭弹窗
   const handleCloseModal = useCallback(() => {
@@ -126,85 +146,148 @@ function App() {
       
       {/* 音效开关 */}
       <motion.button
-        className="fixed top-4 right-4 z-50 w-12 h-12 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-2xl hover:bg-white/20 transition-colors"
+        className="fixed top-4 right-4 z-50 w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center text-xl md:text-2xl transition-all group"
+        style={{
+          background: 'linear-gradient(135deg, rgba(30,30,50,0.9) 0%, rgba(20,20,40,0.95) 100%)',
+          border: '1px solid rgba(255, 215, 0, 0.3)',
+          boxShadow: soundEnabled 
+            ? '0 0 20px rgba(255, 215, 0, 0.3), inset 0 0 20px rgba(255, 215, 0, 0.1)' 
+            : '0 4px 15px rgba(0,0,0,0.3)',
+        }}
         onClick={() => setSoundEnabled(!soundEnabled)}
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
         title={soundEnabled ? '关闭音效' : '开启音效'}
       >
-        {soundEnabled ? '🔊' : '🔇'}
+        <motion.span
+          animate={{ rotate: soundEnabled ? 0 : 180 }}
+          transition={{ duration: 0.3 }}
+        >
+          {soundEnabled ? '🔊' : '🔇'}
+        </motion.span>
       </motion.button>
 
       {/* 主内容 */}
-      <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 py-6 md:py-8 lg:py-10">
-        {/* 标题区域 */}
+      <div className="relative z-10 h-screen flex flex-col items-center justify-center px-4 py-3 md:py-4 overflow-hidden">
+        {/* 标题区域 - 绝对定位确保居中 */}
         <motion.header 
-          className="text-center mb-6 md:mb-8 lg:mb-10"
+          className="absolute top-4 md:top-6 lg:top-8 left-0 right-0 text-center flex-shrink-0"
           initial={{ opacity: 0, y: -50 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
+          transition={{ duration: 1, ease: "easeOut" }}
         >
-          <motion.div
-            className="inline-block"
-            whileHover={{ scale: 1.02 }}
+          {/* 顶部装饰 */}
+          <motion.div 
+            className="flex items-center justify-center gap-2 mb-1"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.3 }}
           >
-            <h1 className="font-display text-4xl md:text-5xl lg:text-7xl font-bold text-gold-gradient text-shadow-gold mb-2">
+            <motion.span 
+              className="text-xl md:text-2xl"
+              animate={{ rotate: [0, 15, -15, 0] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            >
+              🎊
+            </motion.span>
+            <span className="text-gold-400 text-xs tracking-[0.3em] uppercase font-medium">
+              Annual Party
+            </span>
+            <motion.span 
+              className="text-xl md:text-2xl"
+              animate={{ rotate: [0, -15, 15, 0] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            >
+              🎊
+            </motion.span>
+          </motion.div>
+
+          <motion.div
+            className="relative inline-block"
+            whileHover={{ scale: 1.02 }}
+            transition={{ type: "spring", stiffness: 300 }}
+          >
+            {/* 标题光晕 */}
+            <motion.div
+              className="absolute inset-0 -m-4 bg-gradient-radial from-gold-500/20 to-transparent blur-2xl"
+              animate={{ opacity: [0.5, 1, 0.5] }}
+              transition={{ duration: 3, repeat: Infinity }}
+            />
+            
+            <h1 className="relative font-display text-3xl md:text-4xl lg:text-5xl font-bold text-gold-gradient text-shadow-gold leading-tight">
               2026 年会抽奖
             </h1>
-            <motion.div 
-              className="flex items-center justify-center gap-4"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
-            >
-              <span className="h-px w-12 md:w-20 bg-gradient-to-r from-transparent to-gold-500" />
-              <p className="text-gold-400 text-lg md:text-xl lg:text-2xl tracking-[0.3em] uppercase">
-                Fortune Wheel
-              </p>
-              <span className="h-px w-12 md:w-20 bg-gradient-to-l from-transparent to-gold-500" />
-            </motion.div>
           </motion.div>
         </motion.header>
 
-        {/* 转盘区域 */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.8, delay: 0.3 }}
-          className="flex-shrink-0"
-        >
-          <LotteryWheel 
-            prizes={prizes}
-            isSpinning={isSpinning}
-            onSpinEnd={handleSpinEnd}
-          />
-        </motion.div>
-
-        {/* 按钮区域 */}
-        <motion.div 
-          className="mt-6 md:mt-8 lg:mt-10"
-          initial={{ opacity: 0, y: 50 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.6 }}
-        >
-          <button
-            onClick={handleSpin}
-            disabled={isSpinning}
-            className="btn-gold text-xl md:text-2xl tracking-wider"
+        {/* 转盘和按钮区域 - 垂直布局 */}
+        <div className="flex flex-col items-center justify-center gap-4 md:gap-6 flex-shrink-0 mt-16 md:mt-20">
+          {/* 转盘 */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.5, rotate: -180 }}
+            animate={{ opacity: 1, scale: 1, rotate: 0 }}
+            transition={{ duration: 1, delay: 0.3, type: "spring", stiffness: 100 }}
+            className="flex-shrink-0"
           >
-            {isSpinning ? '抽奖中...' : '开始抽奖'}
-          </button>
-        </motion.div>
+            <LotteryWheel 
+              prizes={prizes}
+              isSpinning={isSpinning}
+              shouldStop={shouldStop}
+              onSpinEnd={handleSpinEnd}
+            />
+          </motion.div>
 
-        {/* 底部装饰 */}
-        <motion.footer
-          className="mt-auto pt-8 text-center text-gold-500/50 text-sm"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1 }}
-        >
-          <p>祝大家2026年好运连连 🎊</p>
-        </motion.footer>
+          {/* 按钮 - 转盘正下方 */}
+          <motion.div 
+            className="flex-shrink-0"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.8 }}
+          >
+            <AnimatePresence mode="wait">
+              {!isSpinning ? (
+                <motion.button
+                  key="start"
+                  onClick={handleSpin}
+                  className="btn-gold text-lg md:text-xl lg:text-2xl tracking-wider ripple py-3 px-8 md:py-4 md:px-12 flex items-center gap-3"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  whileHover={{ scale: 1.05, y: -3 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <span className="text-2xl md:text-3xl">🎯</span>
+                  <span>开始抽奖</span>
+                </motion.button>
+              ) : (
+                <motion.button
+                  key="stop"
+                  onClick={handleStop}
+                  className="py-3 px-8 md:py-4 md:px-12 rounded-xl font-bold text-lg md:text-xl lg:text-2xl tracking-wider flex items-center gap-3 transition-all"
+                  style={{
+                    background: 'linear-gradient(135deg, #E74C3C 0%, #C0392B 100%)',
+                    color: 'white',
+                    boxShadow: '0 0 20px rgba(231, 76, 60, 0.5), 0 8px 25px rgba(0,0,0,0.3)',
+                  }}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  whileHover={{ scale: 1.05, y: -3 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <motion.span 
+                    className="text-2xl md:text-3xl"
+                    animate={{ scale: [1, 1.2, 1] }}
+                    transition={{ duration: 0.5, repeat: Infinity }}
+                  >
+                    ✋
+                  </motion.span>
+                  <span>立即停止</span>
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        </div>
       </div>
 
       {/* 结果弹窗 */}
