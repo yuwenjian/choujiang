@@ -241,25 +241,26 @@ export default function LotteryWheel({ prizes, isSpinning, shouldStop, onSpinEnd
     let delta = targetPosition - currentPosition
     if (delta <= 0) delta += 360
     
-    // 只转1圈就停止
-    const totalRotation = 360 + delta
+    // 只转半圈内就停止
+    const totalRotation = delta
     const finalRotation = rotationRef.current + totalRotation
     
-    // 快速停止动画
+    // 立即停止动画
+    controls.stop()
     controls.start({
       rotate: finalRotation,
       transition: {
-        duration: 1.5,
+        duration: 0.5,
         ease: [0.4, 0, 0.2, 1],
       }
     })
     
     rotationRef.current = finalRotation
 
-    // 1.5秒后回调
+    // 0.5秒后回调
     spinTimerRef.current = setTimeout(() => {
       onSpinEnd(selectedIndex)
-    }, 1500)
+    }, 500)
 
   }, [shouldStop, isSpinning, prizes.length, onSpinEnd, controls])
 
